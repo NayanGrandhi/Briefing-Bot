@@ -21,9 +21,10 @@ MAX_RETRY_AFTER = 30.0
 
 
 class HTTPError(Exception):
-    def __init__(self, message: str, status: int | None = None) -> None:
+    def __init__(self, message: str, status: int | None = None, body: str = "") -> None:
         super().__init__(redact(message))
         self.status = status
+        self.body = redact(body[:500])
 
 
 def _sleep(seconds: float) -> None:  # separate function so tests can patch it
@@ -52,7 +53,7 @@ def request(
 ) -> requests.Response:
     hdrs = {"User-Agent": USER_AGENT, **(headers or {})}
     host = urlparse(url).hostname or "?"
-    last_error, last_status = "unknown error", None
+    last_error, last_status, last_body = "unknown error", None, ""
     for attempt in range(retries + 1):
         retry_after = None
         try:
@@ -65,6 +66,7 @@ def request(
             if resp.status_code < 400:
                 return resp
             last_status, last_error = resp.status_code, f"HTTP {resp.status_code}"
+            last_body = resp.text or ""
             if resp.status_code not in RETRY_STATUSES:
                 break
             retry_after = _retry_after(resp)
@@ -76,7 +78,7 @@ def request(
                 extra={"host": host, "attempt": attempt + 1, "reason": last_error, "delay": delay},
             )
             _sleep(delay)
-    raise HTTPError(f"{method} {host} failed: {last_error}", last_status)
+    raise HTTPError(f"{method} {host} failed: {last_error}", last_status, last_body)
 
 
 def _json(resp: requests.Response, host: str) -> Any:

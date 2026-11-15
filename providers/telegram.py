@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import json
 import logging
 import re
 from typing import Any
@@ -34,6 +35,25 @@ def split_text(text: str, limit: int = MAX_LEN) -> list[str]:
     return chunks
 
 
+HINTS = {
+    "chat not found": "check TELEGRAM_CHAT_ID, and press Start on your bot in Telegram",
+    "bot was blocked": "you blocked the bot; unblock it in Telegram",
+    "bots can't send messages to bots": "TELEGRAM_CHAT_ID is a bot id; use your own id from @userinfobot",
+    "unauthorized": "TELEGRAM_BOT_TOKEN is wrong; copy it again from @BotFather",
+    "not found": "TELEGRAM_BOT_TOKEN is wrong; copy it again from @BotFather",
+}
+
+
+def describe(exc: http.HTTPError) -> str:
+    """Telegram's own error text plus a plain-English fix."""
+    try:
+        desc = json.loads(exc.body).get("description", "")
+    except ValueError:
+        desc = ""
+    hint = next((h for k, h in HINTS.items() if k in desc.lower()), "")
+    return " - ".join(x for x in (desc or "no details", hint) if x)
+
+
 def strip_html(text: str) -> str:
     return html.unescape(re.sub(r"<[^>]+>", "", text))
 
@@ -52,9 +72,12 @@ class TelegramClient:
         self.chat_id = str(chat_id)
 
     def _call(self, method: str, payload: dict[str, Any] | None = None, timeout: float = 15) -> Any:
-        data = http.post_json(
-            API.format(token=self.token, method=method), json=payload or {}, timeout=timeout
-        )
+        try:
+            data = http.post_json(
+                API.format(token=self.token, method=method), json=payload or {}, timeout=timeout
+            )
+        except http.HTTPError as exc:
+            raise http.HTTPError(f"{exc} ({describe(exc)})", exc.status, exc.body) from exc
         if not data.get("ok"):
             raise http.HTTPError(f"Telegram {method} not ok: {data.get('description')}")
         return data["result"]
@@ -74,7 +97,7 @@ class TelegramClient:
             try:
                 self._call("sendMessage", payload)
             except http.HTTPError as exc:
-                if exc.status != 400:
+                if exc.status != 400 or "parse entities" not in exc.body.lower():
                     raise
                 log.warning("html rejected, resending as plain text")
                 payload.pop("parse_mode")

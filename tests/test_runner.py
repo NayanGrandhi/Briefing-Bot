@@ -129,7 +129,9 @@ def test_split_text_and_plain_fallback(monkeypatch):
     def fake(method, payload=None, timeout=15):
         calls.append(payload)
         if "parse_mode" in payload:
-            raise tgmod.http.HTTPError("bad entities", 400)
+            raise tgmod.http.HTTPError(
+                "bad", 400, '{"description": "Bad Request: can\'t parse entities"}'
+            )
 
     monkeypatch.setattr(client, "_call", fake)
     client.send(tgmod.Message(text="<b>Hi</b> &amp; bye <a href='x'>l</a>"))
@@ -173,3 +175,20 @@ def test_telegram_call_builds_correct_request_and_checks_ok(monkeypatch):
 
     with pytest.raises(tgmod.http.HTTPError):
         client.get_updates()
+
+
+def test_chat_not_found_is_explained_and_not_retried_as_plain_text(monkeypatch):
+    body = '{"ok": false, "error_code": 400, "description": "Bad Request: chat not found"}'
+    calls = []
+
+    def fake_post(url, **kw):
+        calls.append(kw)
+        raise tgmod.http.HTTPError("POST api.telegram.org failed: HTTP 400", 400, body)
+
+    monkeypatch.setattr(tgmod.http, "post_json", fake_post)
+    import pytest
+
+    with pytest.raises(tgmod.http.HTTPError) as e:
+        tgmod.TelegramClient("t", "1").send(tgmod.Message(text="hi"))
+    assert "chat not found" in str(e.value) and "Start" in str(e.value)
+    assert len(calls) == 1  # not pointlessly resent as plain text
