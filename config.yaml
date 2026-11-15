@@ -1,0 +1,84 @@
+# Everything personal lives here. Secrets (tokens, keys) do NOT - they go in GitHub Secrets / .env.
+
+timezone: Asia/Kolkata
+send_time: "07:00"          # keep the quotes. The workflow cron fires ~06:50 and waits for this.
+max_wait_minutes: 10        # never hold a run longer than this waiting for send_time
+
+location:
+  city: Hyderabad
+  latitude: 17.385          # optional; if omitted the city is geocoded via Open-Meteo
+  longitude: 78.4867
+
+# Topics drive news ranking. `keywords` are matched in title/summary; `weight` scales importance.
+# You can also change these from Telegram with /topics (stored in the SQLite state, not this file).
+topics:
+  - name: Tech & AI
+    weight: 1.0
+    keywords: [ai, llm, openai, anthropic, gemini, nvidia, gpu, chip, open source, python, rust, startup, robotics]
+  - name: Real Madrid
+    weight: 1.5                  # your club: ranks above everything else
+    keywords: [real madrid, los blancos, bernabeu, bernabéu, vinicius, mbappe, mbappé, bellingham, rodrygo, "la liga"]
+  - name: Football
+    weight: 0.7
+    keywords: [football, soccer, champions league, la liga, transfer, fifa, uefa]
+
+# `topic:` on a feed means every story from it counts toward that topic (handy for sport feeds).
+feeds:
+  - {name: The Verge,        url: "https://www.theverge.com/rss/index.xml"}
+  - {name: Ars Technica,     url: "https://feeds.arstechnica.com/arstechnica/index"}
+  - {name: Hacker News,      url: "https://hnrss.org/frontpage?points=100"}
+  - {name: TechCrunch AI,    url: "https://techcrunch.com/category/artificial-intelligence/feed/"}
+  - {name: "Real Madrid news", url: "https://news.google.com/rss/search?q=%22Real+Madrid%22+when:1d&hl=en-IN&gl=IN&ceid=IN:en", topic: Real Madrid}
+  - {name: "Real Madrid transfers", url: "https://news.google.com/rss/search?q=%22Real+Madrid%22+transfer+when:2d&hl=en-IN&gl=IN&ceid=IN:en", topic: Real Madrid}
+  - {name: BBC Football,     url: "https://feeds.bbci.co.uk/sport/football/rss.xml", topic: Football}
+  - {name: Guardian Football, url: "https://www.theguardian.com/football/rss",       topic: Football}
+
+llm:
+  provider: gemini               # gemini | groq (add more in providers/llm/__init__.py)
+  model: gemini-2.5-flash        # any free-tier model your key can use
+  fallback_provider: null        # e.g. groq - used automatically if the primary fails
+  daily_call_budget: 30          # hard cap on LLM calls per day (a normal run uses ~3)
+  cache_ttl_hours: 48
+
+tasks_file: tasks.md             # simple checklist, see tasks.md for the format
+db_path: data/state.db           # committed to the repo by the workflows
+
+# Section order here = order in the briefing. Set enabled: false to switch one off.
+sections:
+  weather:
+    enabled: true
+  calendar:
+    enabled: true                # needs CALENDAR_ICAL_URL (secret iCal address)
+    max_events: 8
+  football:
+    enabled: true                # needs FOOTBALL_DATA_API_KEY (free)
+    team_id: 86                  # football-data.org team id (86 = Real Madrid)
+    team_name: Real Madrid
+  news:
+    enabled: true
+    max_items: 5
+    max_age_hours: 36
+    candidates: 15               # how many stories go to the LLM for scoring (token control)
+    min_score: 3                 # drop stories scoring below this (1-10) instead of padding the list
+  tasks:
+    enabled: true
+    todoist: true                # also merge Todoist (today + overdue) if TODOIST_API_TOKEN is set
+  markets:
+    enabled: true
+    symbols:                     # Yahoo Finance symbols
+      - {symbol: NVDA,  name: Nvidia}
+      - {symbol: "^GSPC", name: S&P 500}
+      - {symbol: "GC=F", name: Gold}
+      - {symbol: "^NSEI", name: Nifty 50}
+      - {symbol: "^BSESN", name: Sensex}
+    crypto:                      # CoinGecko ids
+      - {id: bitcoin,  name: Bitcoin}
+      - {id: ethereum, name: Ethereum}
+    movers:                      # big daily gainers/losers (best effort, US large caps)
+      enabled: true
+      max_each: 2
+      min_market_cap: 10000000000
+    flag_threshold_pct: 5        # 🔥 next to any watchlist move bigger than this
+  snippet:
+    enabled: true
+    topic: "programming, developer tools and productivity"
