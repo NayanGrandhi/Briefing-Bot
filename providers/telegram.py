@@ -38,7 +38,7 @@ def split_text(text: str, limit: int = MAX_LEN) -> list[str]:
 HINTS = {
     "chat not found": "check TELEGRAM_CHAT_ID, and press Start on your bot in Telegram",
     "bot was blocked": "you blocked the bot; unblock it in Telegram",
-    "bots can't send messages to bots": "TELEGRAM_CHAT_ID is a bot id; use your own id from @userinfobot",
+    "bots can't send messages to bots": "TELEGRAM_CHAT_ID is a bot id; use yours from @userinfobot",
     "unauthorized": "TELEGRAM_BOT_TOKEN is wrong; copy it again from @BotFather",
     "not found": "TELEGRAM_BOT_TOKEN is wrong; copy it again from @BotFather",
 }
