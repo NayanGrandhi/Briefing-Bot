@@ -58,3 +58,12 @@ def test_config_flag_works_with_and_without_subcommand(tmp_path):
     assert parse_args(["--config", "x.yaml", "--dry-run"]).config == "x.yaml"
     assert parse_args(["run", "--config", "y.yaml"]).config == "y.yaml"
     assert parse_args(["poll", "--config", "z.yaml"]).config == "z.yaml"
+
+
+def test_clean_token_forgives_paste_mistakes():
+    from main import clean_token
+
+    good = "8123456789:AAHk3xQz"
+    for raw in (good, f" {good}\n", f'"{good}"', f"<{good}>", f"bot{good}",
+                f"https://api.telegram.org/bot{good}/getUpdates"):  # fmt: skip
+        assert clean_token(raw) == good

@@ -55,8 +55,19 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
+def clean_token(raw: str | None) -> str:
+    """Forgive common copy/paste slips: spaces, quotes, <>, a leading 'bot', or a whole URL."""
+    t = (raw or "").strip().strip("\"'<>").strip()
+    if "api.telegram.org/bot" in t:
+        t = t.split("api.telegram.org/bot", 1)[1].split("/", 1)[0]
+    if t.lower().startswith("bot") and ":" in t:
+        t = t[3:]
+    return t
+
+
 def telegram_from_env() -> TelegramClient | None:
-    token, chat = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
+    token = clean_token(os.environ.get("TELEGRAM_BOT_TOKEN"))
+    chat = (os.environ.get("TELEGRAM_CHAT_ID") or "").strip().strip("\"'")
     return TelegramClient(token, chat) if token and chat else None
 
 
